@@ -1,0 +1,3 @@
+# Core packages: enough to run the app with the sample CSV.
+streamlit>=1.36
+pandas>=2.0

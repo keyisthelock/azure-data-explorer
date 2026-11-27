@@ -1,0 +1,4 @@
+# Optional: only needed for "Azure SQL (optional)" mode.
+# Installs everything in requirements.txt plus the SQL Server driver.
+-r requirements.txt
+pymssql>=2.3

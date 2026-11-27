@@ -1,0 +1,24 @@
+# ---- Secrets: NEVER commit these ----
+.streamlit/secrets.toml
+secrets.toml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.publishsettings
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ---- Editors and OS files ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
