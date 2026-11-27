@@ -1,0 +1,6 @@
+# Non-secret app settings (safe to commit).
+[theme]
+primaryColor = "#0078D4"   # Azure blue
+
+[browser]
+gatherUsageStats = false
