@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azure Data Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@600;800&family=Red+Hat+Text:wght@400;500;600&display=swap">
+<style>
+/* VOICE: a graphics-desk data board for a student showcase: finding first, calm, precise.
+   IDEA: a weather-chart board for sales: the six-month "climate" read at a glance, plus a working SQL lab.
+   PICTURE: the monthly revenue line, large, over a category-by-month heat strip.
+   COLOUR and TYPE: navy #0b1433 ground in both themes; scale #3b4fd8, #4fc1c6, #f7e463, #e8452c; Red Hat Display 800 + Red Hat Text.
+   LAYOUT: sticky module nav, title band, key figures, main chart, paired panels, tables; SQL lab as editor + result. */
+:root{color-scheme:dark;--bg:#0b1433;--panel:#121d45;--panel2:#18245a;--line:#26346b;--ink:#eef1fb;--muted:#a9b3d6;--c1:#3b4fd8;--c2:#4fc1c6;--c3:#f7e463;--c4:#e8452c;--bad:#ff8a78}
+:root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Red Hat Text",system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Red Hat Display",system-ui,sans-serif;margin:0;text-wrap:balance}
+h1{font-size:clamp(32px,5vw,52px);font-weight:800;line-height:1.05}
+h2{font-size:22px;font-weight:600;margin-bottom:10px}
+h3{font-size:18px;font-weight:600;margin-bottom:8px}
+code{font-size:.92em;color:#d9e2ff;overflow-wrap:anywhere}
+.band{padding:clamp(22px,3.5vw,48px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+.lede{max-width:70ch;color:var(--muted);margin:12px 0 0}
+.note{font-size:13px;color:var(--muted);margin:6px 0 0}
+nav{position:sticky;top:0;z-index:5;background:rgba(11,20,51,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;gap:6px;overflow-x:auto;padding:10px max(5vw,16px)}
+nav a{flex:none;color:var(--muted);text-decoration:none;font-weight:600;padding:10px 16px;border-radius:999px;min-height:44px;display:flex;align-items:center}
+nav a[aria-current=page]{background:var(--c2);color:#06122e}
+nav a:focus-visible,button:focus-visible,textarea:focus-visible,select:focus-visible,label:focus-within{outline:3px solid var(--c3);outline-offset:2px}
+.brand{font:800 18px "Red Hat Display",sans-serif;color:var(--ink);padding-right:14px;display:flex;align-items:center;flex:none}
+.view{display:none}.view.on{display:block}
+.btn,.chip{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:10px 18px;min-height:44px;cursor:pointer}
+.btn.primary{background:var(--c2);border-color:var(--c2);color:#06122e}
+.btn.small{font-size:14px;padding:7px 14px;min-height:38px;border-radius:8px;font-weight:500}
+.chip{padding:6px 14px;min-height:36px;font-size:14px;font-weight:500}
+.chip[aria-pressed=false]{opacity:.45;text-decoration:line-through}
+.seg{display:inline-flex;flex-wrap:wrap;gap:6px;margin-top:20px}
+.seg button[aria-pressed=true]{background:var(--c2);color:#06122e;border-color:var(--c2)}
+.upload{display:none;margin-top:12px;gap:10px;flex-wrap:wrap;align-items:center}
+.upload.on{display:flex}
+.upload label{border:1px dashed var(--c2);border-radius:10px;padding:10px 16px;cursor:pointer;min-height:44px;display:flex;align-items:center}
+.upload input{position:absolute;opacity:0;width:1px;height:1px}
+.filters{display:flex;flex-wrap:wrap;gap:16px;margin:16px 0 4px}
+.filters>div{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.filters b{font-size:14px;color:var(--muted);font-weight:500;margin-right:4px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:16px 0 22px}
+.kpis div{background:var(--panel);padding:16px 18px}
+.kpis span{display:block;font-size:13px;color:var(--muted)}
+.kpis strong{font:800 clamp(24px,3.2vw,34px)/1.1 "Red Hat Display",sans-serif;white-space:nowrap}
+.kpis small{display:block;font-size:13px;color:var(--c2);margin-top:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.mt{margin-top:18px}
+.fig{position:relative;min-height:320px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:18px}
+.row{display:grid;grid-template-columns:8.5em minmax(0,1fr) 6.5em;gap:10px;align-items:center;margin:9px 0;font-size:15px}
+.row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{height:22px;border-radius:4px;background:linear-gradient(90deg,var(--c1),var(--c2))}
+.row em{font-style:normal;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.split{display:flex;height:34px;border-radius:8px;overflow:hidden;margin:10px 0}
+.split div{display:flex;align-items:center;justify-content:center;color:#06122e;font-weight:600;font-size:14px;white-space:nowrap}
+.heat{display:grid;gap:3px;margin-top:14px;font-size:13px}
+.heat div{padding:6px 4px;border-radius:3px;text-align:center;white-space:nowrap;color:#06122e;font-weight:600}
+.heat .lab{color:var(--muted);text-align:left;font-weight:500;background:none;overflow:hidden;text-overflow:ellipsis}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow:auto}.tall{max-height:380px}
+pre{background:#060c22;border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-size:14px;color:#d9e2ff;margin:10px 0}
+textarea{width:100%;min-height:190px;background:#060c22;color:#d9e2ff;border:1px solid var(--line);border-radius:10px;padding:14px;font:16px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+.bar-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.msg{font-weight:600;min-height:1.5em;margin:10px 0 0}
+.ok{color:var(--c2)}.err{color:var(--bad)}
+.status{border-left:4px solid var(--c3);padding:12px 16px;background:var(--panel2);border-radius:8px;margin:12px 0}
+.steps{margin:6px 0 0;padding-left:1.3em}.steps li{margin:6px 0}
+.dp td{white-space:normal;vertical-align:top}.dp td:first-child{font-weight:600;width:26%}
+.quiz button{display:block;width:100%;text-align:left;margin:6px 0;border-radius:10px}
+.quiz button.right{border-color:var(--c2);background:#123a4a}.quiz button.wrong{border-color:var(--bad);background:#3a1f2a}
+.hidden{display:none}
+footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media(max-width:900px){.grid3{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:800px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.row{grid-template-columns:6.5em minmax(0,1fr) 5.5em;font-size:14px}.fig{min-height:260px}.brand{display:none}
+ table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start;white-space:normal}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;color:var(--muted)}}
+@media(prefers-reduced-motion:no-preference){.bar,.split div{transition:width .4s ease,flex-basis .4s ease}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<nav aria-label="Modules"><div class="wrap">
+  <span class="brand">Azure Data Explorer</span>
+  <a href="#dashboard" data-v="dashboard">Dashboard</a>
+  <a href="#sql-lab" data-v="sql-lab">SQL Lab</a>
+  <a href="#azure" data-v="azure">Azure SQL</a>
+  <a href="#learn" data-v="learn">DP-900</a>
+</div></nav>
+
+<header class="band" style="padding-bottom:0"><div class="wrap">
+  <h1 id="headline">Electronics drives over half of six months' revenue</h1>
+  <p class="lede">Explore retail sales from a CSV file, query them with real SQL, and see how the same data would come from <strong>Azure SQL Database</strong>. Every module shows a core idea from <strong>Microsoft Azure Data Fundamentals (DP-900)</strong>.</p>
+</div></header>
+
+<main>
+<!-- DASHBOARD -->
+<section id="v-dashboard" class="view band"><div class="wrap">
+  <div class="seg" role="group" aria-label="Data source">
+    <button class="btn" id="srcSample" aria-pressed="true">Sample CSV</button>
+    <button class="btn" id="srcUpload" aria-pressed="false">Your CSV</button>
+    <a class="btn" href="#azure" style="text-decoration:none;display:inline-flex;align-items:center">Azure SQL (optional)</a>
+  </div>
+  <div class="upload" id="uploadBox">
+    <label>Choose a CSV file<input type="file" id="file" accept=".csv,text/csv"></label>
+    <span class="note" style="margin:0">Needs columns: order_id, order_date, region, category, quantity, total_amount. Stays in your browser and isn't uploaded anywhere.</span>
+  </div>
+  <p class="msg" id="loadMsg" aria-live="polite"></p>
+  <p class="note" id="caption"></p>
+  <div class="filters"><div id="fRegion"><b>Region</b></div><div id="fCat"><b>Category</b></div><div id="fChan"><b>Channel</b></div></div>
+  <div class="kpis" id="kpis"></div>
+  <p class="msg err hidden" id="empty">No rows match. Turn on at least one option in each filter.</p>
+
+  <div class="card">
+    <h2>Revenue by month</h2>
+    <div class="fig"><svg id="lineChart" role="img" aria-label="Line chart of revenue by month"></svg></div>
+    <div class="heat" id="heat"></div>
+    <p class="note">Strip: revenue per category per month (₹ thousands). Blue is lower, red is higher.</p>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><h2>Revenue by category</h2><div id="byCat"></div></div>
+    <div class="card"><h2>Orders by region</h2><div id="byRegion"></div></div>
+    <div class="card"><h2>Online vs in-store</h2><div id="byChan"></div><h3 class="mt">Top products</h3><div id="topProd"></div></div>
+  </div>
+
+  <div class="card mt">
+    <h2>Data preview</h2>
+    <p class="note" id="prevNote"></p>
+    <div class="scroll tall mt"><table id="preview"></table></div>
+    <div class="bar-row"><button class="btn small" id="copyCsv">Copy filtered rows as CSV</button><span class="note" id="copyMsg" aria-live="polite" style="margin:0"></span></div>
+  </div>
+
+  <div class="card mt">
+    <h2>Summary statistics</h2>
+    <div class="scroll"><table id="stats" class="stack"></table></div>
+    <p class="note">count = rows, mean = average, std = spread, 25% / 50% / 75% = quartiles.</p>
+  </div>
+</div></section>
+
+<!-- SQL LAB -->
+<section id="v-sql-lab" class="view band"><div class="wrap">
+  <h2 style="font-size:28px">SQL Lab</h2>
+  <p class="lede" style="margin-top:0">Run real SQL in your browser against a <code>Sales</code> table loaded with the current dataset. <code>dbo.Sales</code> works too, so queries copy straight into Azure SQL. The same read-only guard as the Streamlit app runs first.</p>
+  <div class="grid2" style="align-items:start">
+    <div class="card">
+      <label for="sql"><h3>Query</h3></label>
+      <textarea id="sql" spellcheck="false"></textarea>
+      <div class="bar-row">
+        <button class="btn primary" id="run">Run query</button>
+        <select class="btn small" id="preset" aria-label="Example queries"></select>
+      </div>
+      <p class="note">Tip: press Ctrl + Enter to run.</p>
+    </div>
+    <div class="card">
+      <h3>What this query does</h3>
+      <p id="explain"></p>
+      <h3 class="mt">Concepts</h3>
+      <p class="note" id="concepts" style="font-size:15px"></p>
+    </div>
+  </div>
+  <p class="msg" id="sqlMsg" aria-live="polite"></p>
+  <div class="card mt hidden" id="resultCard">
+    <h3 id="resultTitle">Result</h3>
+    <div class="scroll tall"><table id="result"></table></div>
+  </div>
+</div></section>
+
+<!-- AZURE -->
+<section id="v-azure" class="view band"><div class="wrap">
+  <h2 style="font-size:28px">Azure SQL Database (optional)</h2>
+  <p class="lede" style="margin-top:0">The Streamlit app can read the same table from <strong>your own</strong> Azure SQL Database. Credentials come from <code>.streamlit/secrets.toml</code> or environment variables. They are never typed into a page, shown on screen, or committed to GitHub.</p>
+  <div class="status"><strong>Configuration status: not connected.</strong> This web version has no database connection and never asks for credentials. Use the SQL Lab to practise queries, then run them in the Streamlit app with your own secrets.</div>
+  <div class="grid2">
+    <div class="card">
+      <h3>How the app connects</h3>
+      <ol class="steps">
+        <li>Create an Azure SQL Database with SQL authentication, and add your IP to the server firewall.</li>
+        <li>Run <code>sql/setup_sales_table.sql</code> in the portal's Query editor to create <code>dbo.Sales</code> with 240 rows.</li>
+        <li>Optionally create a read-only user (<code>db_datareader</code>).</li>
+        <li>Copy <code>.streamlit/secrets.toml.example</code> to <code>secrets.toml</code> and fill in your own values. It is git-ignored.</li>
+        <li><code>pip install -r requirements-azure.txt</code>, run the app, choose <strong>Azure SQL (optional)</strong>.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Secrets file (placeholders only)</h3>
+<pre>[azure_sql]
+server   = "your-server-name.database.windows.net"
+database = "your-database-name"
+username = "your-sql-username"
+password = "your-password-here"</pre>
+      <p class="note">Never commit <code>secrets.toml</code>. If a password is ever shared by accident, reset it in Azure straight away.</p>
+    </div>
+  </div>
+  <div class="card mt">
+    <h3>Read-only guard</h3>
+    <p>The app accepts a single <code>SELECT</code> or <code>WITH</code> statement and rejects keywords that change data. Try it:</p>
+    <div class="bar-row" id="tries"></div>
+    <p class="msg" id="verdict" aria-live="polite"></p>
+  </div>
+</div></section>
+
+<!-- LEARN -->
+<section id="v-learn" class="view band"><div class="wrap">
+  <h2 style="font-size:28px">How this project maps to DP-900</h2>
+  <div class="card mt"><div class="scroll"><table class="dp stack">
+    <thead><tr><th>DP-900 concept</th><th>Where you see it</th></tr></thead>
+    <tbody>
+      <tr><td>Relational data</td><td>Each order is a row with a fixed set of columns. <code>order_id</code> is the primary key.</td></tr>
+      <tr><td>Tables and data types</td><td><code>dbo.Sales</code> uses DATE, INT, DECIMAL and VARCHAR columns (<code>sql/setup_sales_table.sql</code>).</td></tr>
+      <tr><td>SQL: DDL, DML, DQL</td><td>CREATE TABLE (DDL), INSERT (DML), and SELECT with WHERE, ORDER BY and GROUP BY (DQL) in the SQL Lab.</td></tr>
+      <tr><td>File-based data</td><td>The CSV is delimited text, a common way to move data between systems. Upload your own on the Dashboard.</td></tr>
+      <tr><td>Analytical workloads</td><td>Totals, averages, trends over time and group comparisons, the same ideas behind Power BI reports.</td></tr>
+      <tr><td>Cloud data services (PaaS)</td><td>Azure SQL Database is managed: Microsoft runs the servers, patching and backups.</td></tr>
+      <tr><td>Security</td><td>Secrets stay out of code, the server firewall limits who connects, and a read-only user is recommended.</td></tr>
+    </tbody>
+  </table></div></div>
+  <div class="card mt quiz" id="quiz"><h3>Quick check</h3></div>
+</div></section>
+</main>
+
+<footer class="band"><div class="wrap">Azure Data Explorer, a DP-900 student project. Sample data: 240 made-up orders, January–June 2026. Python/Streamlit app and this web version are in the same repository.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/alasql@4.22.4/dist/alasql.min.js"></script>
+<script>
+{
+const SAMPLE = `order_id,order_date,region,city,category,product,channel,quantity,unit_price,discount_pct,total_amount
+ORD-1001,2026-01-01,East,Kolkata,Books,Cloud Basics Guide,Online,1,549,5,521.55
+ORD-1002,2026-01-01,North,Chandigarh,Stationery,Gel Pens (10),In-Store,1,179,0,179.0
+ORD-1003,2026-01-02,East,Bhubaneswar,Electronics,Wireless Mouse,Online,1,899,0,899.0
+ORD-1004,2026-01-03,East,Bhubaneswar,Electronics,Wireless Mouse,In-Store,4,899,5,3416.2
+ORD-1005,2026-01-03,South,Hyderabad,Home & Kitchen,Lunch Box,In-Store,2,549,0,1098.0
+ORD-1006,2026-01-03,North,Delhi,Electronics,Wireless Mouse,Online,3,899,0,2697.0
+ORD-1007,2026-01-03,North,Delhi,Books,Python Cookbook,In-Store,3,999,0,2997.0
+ORD-1008,2026-01-04,South,Hyderabad,Home & Kitchen,Steel Water Bottle,Online,2,699,0,1398.0
+ORD-1009,2026-01-04,East,Kolkata,Stationery,Gel Pens (10),In-Store,3,179,10,483.3
+ORD-1010,2026-01-05,East,Bhubaneswar,Stationery,Notebook Pack,In-Store,1,249,0,249.0
+ORD-1011,2026-01-05,East,Kolkata,Electronics,Bluetooth Speaker,Online,1,3299,10,2969.1
+ORD-1012,2026-01-05,East,Kolkata,Stationery,Notebook Pack,Online,2,249,0,498.0
+ORD-1013,2026-01-05,North,Delhi,Books,Data Science Handbook,Online,1,799,10,719.1
+ORD-1014,2026-01-06,South,Chennai,Books,Python Cookbook,Online,2,999,5,1898.1
+ORD-1015,2026-01-08,East,Bhubaneswar,Stationery,Desk Organizer,In-Store,1,649,0,649.0
+ORD-1016,2026-01-08,North,Delhi,Stationery,Notebook Pack,Online,1,249,0,249.0
+ORD-1017,2026-01-08,North,Chandigarh,Electronics,Bluetooth Speaker,Online,2,3299,0,6598.0
+ORD-1018,2026-01-10,North,Ludhiana,Home & Kitchen,Lunch Box,Online,1,549,0,549.0
+ORD-1019,2026-01-11,South,Chennai,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1020,2026-01-11,South,Hyderabad,Stationery,Desk Organizer,Online,1,649,0,649.0
+ORD-1021,2026-01-13,South,Bengaluru,Stationery,Notebook Pack,Online,2,249,0,498.0
+ORD-1022,2026-01-13,North,Ludhiana,Electronics,Wireless Mouse,Online,5,899,0,4495.0
+ORD-1023,2026-01-14,South,Chennai,Books,Data Science Handbook,Online,2,799,10,1438.2
+ORD-1024,2026-01-16,West,Pune,Books,Data Science Handbook,Online,4,799,0,3196.0
+ORD-1025,2026-01-17,North,Chandigarh,Electronics,USB-C Hub,In-Store,5,2499,0,12495.0
+ORD-1026,2026-01-18,West,Mumbai,Stationery,Desk Organizer,Online,5,649,0,3245.0
+ORD-1027,2026-01-19,North,Delhi,Books,Python Cookbook,In-Store,1,999,0,999.0
+ORD-1028,2026-01-20,East,Bhubaneswar,Home & Kitchen,Steel Water Bottle,Online,4,699,0,2796.0
+ORD-1029,2026-01-21,West,Pune,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1030,2026-01-22,South,Bengaluru,Home & Kitchen,Coffee Mug,In-Store,2,299,5,568.1
+ORD-1031,2026-01-24,North,Ludhiana,Electronics,Bluetooth Speaker,Online,1,3299,0,3299.0
+ORD-1032,2026-01-26,West,Pune,Stationery,Notebook Pack,Online,1,249,0,249.0
+ORD-1033,2026-01-27,South,Bengaluru,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1034,2026-01-28,East,Bhubaneswar,Books,Cloud Basics Guide,Online,1,549,0,549.0
+ORD-1035,2026-01-28,East,Bhubaneswar,Stationery,Desk Organizer,Online,2,649,5,1233.1
+ORD-1036,2026-01-28,South,Bengaluru,Home & Kitchen,Coffee Mug,Online,5,299,5,1420.25
+ORD-1037,2026-01-28,East,Kolkata,Stationery,Gel Pens (10),Online,4,179,10,644.4
+ORD-1038,2026-01-29,North,Ludhiana,Stationery,Notebook Pack,In-Store,2,249,10,448.2
+ORD-1039,2026-01-30,East,Bhubaneswar,Books,Python Cookbook,Online,1,999,10,899.1
+ORD-1040,2026-01-31,South,Bengaluru,Home & Kitchen,Steel Water Bottle,Online,1,699,5,664.05
+ORD-1041,2026-02-01,East,Kolkata,Home & Kitchen,Coffee Mug,Online,1,299,10,269.1
+ORD-1042,2026-02-02,North,Delhi,Books,Data Science Handbook,Online,2,799,10,1438.2
+ORD-1043,2026-02-02,South,Bengaluru,Stationery,Desk Organizer,Online,1,649,0,649.0
+ORD-1044,2026-02-04,West,Ahmedabad,Books,Python Cookbook,Online,1,999,0,999.0
+ORD-1045,2026-02-04,East,Bhubaneswar,Stationery,Desk Organizer,Online,2,649,5,1233.1
+ORD-1046,2026-02-06,South,Hyderabad,Electronics,Bluetooth Speaker,Online,3,3299,5,9402.15
+ORD-1047,2026-02-07,South,Bengaluru,Home & Kitchen,Lunch Box,Online,3,549,5,1564.65
+ORD-1048,2026-02-08,North,Chandigarh,Electronics,Bluetooth Speaker,In-Store,4,3299,10,11876.4
+ORD-1049,2026-02-08,West,Pune,Electronics,Bluetooth Speaker,Online,2,3299,0,6598.0
+ORD-1050,2026-02-08,North,Chandigarh,Books,Cloud Basics Guide,Online,1,549,0,549.0
+ORD-1051,2026-02-11,North,Chandigarh,Books,Python Cookbook,Online,4,999,0,3996.0
+ORD-1052,2026-02-11,East,Kolkata,Books,Data Science Handbook,In-Store,3,799,0,2397.0
+ORD-1053,2026-02-12,West,Mumbai,Books,Cloud Basics Guide,Online,1,549,0,549.0
+ORD-1054,2026-02-13,North,Chandigarh,Electronics,USB-C Hub,Online,2,2499,0,4998.0
+ORD-1055,2026-02-13,East,Kolkata,Books,Data Science Handbook,In-Store,5,799,5,3795.25
+ORD-1056,2026-02-15,East,Bhubaneswar,Stationery,Gel Pens (10),Online,1,179,0,179.0
+ORD-1057,2026-02-15,North,Delhi,Stationery,Notebook Pack,In-Store,1,249,0,249.0
+ORD-1058,2026-02-15,North,Chandigarh,Electronics,Wireless Mouse,Online,2,899,10,1618.2
+ORD-1059,2026-02-16,South,Hyderabad,Home & Kitchen,Lunch Box,Online,3,549,10,1482.3
+ORD-1060,2026-02-17,West,Pune,Home & Kitchen,Steel Water Bottle,Online,2,699,10,1258.2
+ORD-1061,2026-02-17,East,Bhubaneswar,Stationery,Gel Pens (10),In-Store,1,179,0,179.0
+ORD-1062,2026-02-17,East,Bhubaneswar,Books,Data Science Handbook,Online,1,799,0,799.0
+ORD-1063,2026-02-17,South,Chennai,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1064,2026-02-18,South,Chennai,Home & Kitchen,Lunch Box,Online,3,549,0,1647.0
+ORD-1065,2026-02-19,West,Pune,Home & Kitchen,Coffee Mug,Online,3,299,0,897.0
+ORD-1066,2026-02-19,West,Mumbai,Books,Data Science Handbook,In-Store,1,799,5,759.05
+ORD-1067,2026-02-19,South,Chennai,Electronics,Wireless Mouse,Online,2,899,0,1798.0
+ORD-1068,2026-02-19,West,Pune,Home & Kitchen,Coffee Mug,In-Store,1,299,10,269.1
+ORD-1069,2026-02-22,West,Pune,Stationery,Notebook Pack,In-Store,2,249,5,473.1
+ORD-1070,2026-02-22,South,Hyderabad,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1071,2026-02-22,North,Ludhiana,Stationery,Desk Organizer,Online,1,649,0,649.0
+ORD-1072,2026-02-23,South,Hyderabad,Stationery,Gel Pens (10),Online,2,179,0,358.0
+ORD-1073,2026-02-23,North,Delhi,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1074,2026-02-25,West,Pune,Home & Kitchen,Lunch Box,Online,4,549,0,2196.0
+ORD-1075,2026-02-26,South,Chennai,Electronics,Laptop Stand,Online,3,1599,10,4317.3
+ORD-1076,2026-02-27,West,Mumbai,Electronics,Wireless Mouse,Online,2,899,5,1708.1
+ORD-1077,2026-03-01,East,Kolkata,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1078,2026-03-02,East,Kolkata,Electronics,Laptop Stand,Online,2,1599,0,3198.0
+ORD-1079,2026-03-02,West,Ahmedabad,Electronics,USB-C Hub,Online,5,2499,0,12495.0
+ORD-1080,2026-03-03,South,Bengaluru,Stationery,Gel Pens (10),In-Store,1,179,0,179.0
+ORD-1081,2026-03-05,East,Bhubaneswar,Electronics,USB-C Hub,Online,2,2499,0,4998.0
+ORD-1082,2026-03-05,North,Chandigarh,Electronics,Wireless Mouse,In-Store,1,899,0,899.0
+ORD-1083,2026-03-08,West,Ahmedabad,Books,Cloud Basics Guide,Online,4,549,0,2196.0
+ORD-1084,2026-03-09,North,Delhi,Electronics,Wireless Mouse,Online,1,899,0,899.0
+ORD-1085,2026-03-09,West,Pune,Electronics,Laptop Stand,In-Store,1,1599,0,1599.0
+ORD-1086,2026-03-09,South,Bengaluru,Stationery,Desk Organizer,In-Store,1,649,0,649.0
+ORD-1087,2026-03-10,West,Pune,Electronics,USB-C Hub,In-Store,3,2499,0,7497.0
+ORD-1088,2026-03-11,South,Chennai,Electronics,Laptop Stand,In-Store,1,1599,10,1439.1
+ORD-1089,2026-03-11,West,Pune,Electronics,USB-C Hub,Online,1,2499,0,2499.0
+ORD-1090,2026-03-12,West,Pune,Electronics,Wireless Mouse,In-Store,1,899,0,899.0
+ORD-1091,2026-03-13,East,Bhubaneswar,Stationery,Gel Pens (10),In-Store,3,179,5,510.15
+ORD-1092,2026-03-13,West,Ahmedabad,Electronics,Bluetooth Speaker,Online,2,3299,10,5938.2
+ORD-1093,2026-03-13,West,Mumbai,Electronics,Laptop Stand,In-Store,3,1599,0,4797.0
+ORD-1094,2026-03-15,West,Ahmedabad,Books,Data Science Handbook,Online,1,799,5,759.05
+ORD-1095,2026-03-16,East,Bhubaneswar,Electronics,Laptop Stand,Online,2,1599,5,3038.1
+ORD-1096,2026-03-17,South,Chennai,Books,Cloud Basics Guide,Online,2,549,0,1098.0
+ORD-1097,2026-03-18,North,Chandigarh,Electronics,Wireless Mouse,Online,2,899,5,1708.1
+ORD-1098,2026-03-18,West,Mumbai,Electronics,USB-C Hub,In-Store,1,2499,10,2249.1
+ORD-1099,2026-03-18,West,Ahmedabad,Stationery,Desk Organizer,Online,1,649,5,616.55
+ORD-1100,2026-03-18,West,Mumbai,Home & Kitchen,Steel Water Bottle,Online,1,699,10,629.1
+ORD-1101,2026-03-18,East,Bhubaneswar,Stationery,Notebook Pack,In-Store,3,249,0,747.0
+ORD-1102,2026-03-19,West,Mumbai,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1103,2026-03-19,South,Chennai,Electronics,Wireless Mouse,In-Store,3,899,0,2697.0
+ORD-1104,2026-03-20,East,Kolkata,Books,Python Cookbook,Online,1,999,0,999.0
+ORD-1105,2026-03-20,West,Ahmedabad,Home & Kitchen,Coffee Mug,In-Store,1,299,10,269.1
+ORD-1106,2026-03-20,West,Mumbai,Home & Kitchen,Lunch Box,Online,3,549,0,1647.0
+ORD-1107,2026-03-21,North,Delhi,Electronics,Wireless Mouse,Online,1,899,10,809.1
+ORD-1108,2026-03-21,East,Bhubaneswar,Home & Kitchen,Coffee Mug,Online,1,299,5,284.05
+ORD-1109,2026-03-23,South,Chennai,Books,Python Cookbook,In-Store,2,999,10,1798.2
+ORD-1110,2026-03-25,North,Chandigarh,Books,Data Science Handbook,Online,3,799,10,2157.3
+ORD-1111,2026-03-25,East,Bhubaneswar,Home & Kitchen,Lunch Box,Online,1,549,10,494.1
+ORD-1112,2026-03-25,North,Chandigarh,Home & Kitchen,Coffee Mug,Online,1,299,0,299.0
+ORD-1113,2026-03-25,North,Chandigarh,Electronics,Bluetooth Speaker,Online,2,3299,10,5938.2
+ORD-1114,2026-03-27,North,Ludhiana,Books,Python Cookbook,Online,1,999,0,999.0
+ORD-1115,2026-03-27,West,Ahmedabad,Stationery,Notebook Pack,Online,1,249,0,249.0
+ORD-1116,2026-03-29,South,Chennai,Books,Data Science Handbook,Online,1,799,0,799.0
+ORD-1117,2026-03-29,North,Ludhiana,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1118,2026-03-29,North,Ludhiana,Books,Cloud Basics Guide,In-Store,4,549,5,2086.2
+ORD-1119,2026-03-30,North,Delhi,Home & Kitchen,Lunch Box,Online,2,549,0,1098.0
+ORD-1120,2026-03-30,West,Mumbai,Electronics,Laptop Stand,Online,3,1599,0,4797.0
+ORD-1121,2026-03-31,North,Ludhiana,Books,Python Cookbook,Online,1,999,10,899.1
+ORD-1122,2026-04-01,West,Mumbai,Stationery,Notebook Pack,Online,1,249,0,249.0
+ORD-1123,2026-04-02,West,Pune,Home & Kitchen,Coffee Mug,Online,1,299,0,299.0
+ORD-1124,2026-04-03,West,Ahmedabad,Electronics,Bluetooth Speaker,Online,4,3299,0,13196.0
+ORD-1125,2026-04-03,North,Chandigarh,Electronics,Laptop Stand,Online,2,1599,5,3038.1
+ORD-1126,2026-04-03,South,Bengaluru,Books,Cloud Basics Guide,In-Store,2,549,0,1098.0
+ORD-1127,2026-04-05,West,Mumbai,Stationery,Desk Organizer,In-Store,1,649,0,649.0
+ORD-1128,2026-04-07,South,Bengaluru,Home & Kitchen,Coffee Mug,Online,3,299,0,897.0
+ORD-1129,2026-04-09,East,Kolkata,Stationery,Desk Organizer,In-Store,3,649,5,1849.65
+ORD-1130,2026-04-10,East,Bhubaneswar,Books,Python Cookbook,Online,2,999,5,1898.1
+ORD-1131,2026-04-12,East,Bhubaneswar,Stationery,Gel Pens (10),In-Store,2,179,0,358.0
+ORD-1132,2026-04-13,West,Ahmedabad,Home & Kitchen,Steel Water Bottle,In-Store,1,699,10,629.1
+ORD-1133,2026-04-13,North,Delhi,Home & Kitchen,Steel Water Bottle,In-Store,1,699,0,699.0
+ORD-1134,2026-04-16,East,Kolkata,Home & Kitchen,Coffee Mug,In-Store,4,299,0,1196.0
+ORD-1135,2026-04-19,West,Ahmedabad,Electronics,Laptop Stand,Online,2,1599,0,3198.0
+ORD-1136,2026-04-19,South,Chennai,Books,Cloud Basics Guide,Online,1,549,0,549.0
+ORD-1137,2026-04-19,West,Mumbai,Stationery,Gel Pens (10),In-Store,2,179,5,340.1
+ORD-1138,2026-04-21,East,Bhubaneswar,Stationery,Desk Organizer,Online,2,649,0,1298.0
+ORD-1139,2026-04-22,South,Hyderabad,Electronics,Wireless Mouse,In-Store,1,899,10,809.1
+ORD-1140,2026-04-23,West,Mumbai,Home & Kitchen,Steel Water Bottle,Online,1,699,10,629.1
+ORD-1141,2026-04-23,East,Bhubaneswar,Stationery,Gel Pens (10),Online,1,179,0,179.0
+ORD-1142,2026-04-23,North,Chandigarh,Books,Cloud Basics Guide,Online,1,549,0,549.0
+ORD-1143,2026-04-24,West,Mumbai,Books,Cloud Basics Guide,Online,2,549,0,1098.0
+ORD-1144,2026-04-26,West,Pune,Books,Python Cookbook,In-Store,3,999,0,2997.0
+ORD-1145,2026-04-26,East,Bhubaneswar,Books,Data Science Handbook,Online,1,799,0,799.0
+ORD-1146,2026-04-27,North,Ludhiana,Electronics,USB-C Hub,Online,1,2499,0,2499.0
+ORD-1147,2026-04-27,West,Ahmedabad,Home & Kitchen,Coffee Mug,Online,3,299,0,897.0
+ORD-1148,2026-04-28,North,Ludhiana,Stationery,Notebook Pack,Online,5,249,10,1120.5
+ORD-1149,2026-04-29,East,Kolkata,Home & Kitchen,Coffee Mug,Online,2,299,0,598.0
+ORD-1150,2026-04-29,East,Bhubaneswar,Books,Cloud Basics Guide,In-Store,1,549,10,494.1
+ORD-1151,2026-04-30,North,Delhi,Stationery,Desk Organizer,In-Store,5,649,0,3245.0
+ORD-1152,2026-04-30,South,Bengaluru,Stationery,Gel Pens (10),Online,2,179,0,358.0
+ORD-1153,2026-04-30,West,Mumbai,Electronics,USB-C Hub,Online,2,2499,10,4498.2
+ORD-1154,2026-04-30,South,Chennai,Books,Python Cookbook,Online,2,999,5,1898.1
+ORD-1155,2026-05-01,West,Pune,Electronics,Wireless Mouse,Online,1,899,0,899.0
+ORD-1156,2026-05-01,North,Delhi,Electronics,USB-C Hub,In-Store,2,2499,0,4998.0
+ORD-1157,2026-05-03,East,Bhubaneswar,Stationery,Notebook Pack,Online,1,249,10,224.1
+ORD-1158,2026-05-03,South,Bengaluru,Books,Python Cookbook,Online,1,999,0,999.0
+ORD-1159,2026-05-04,West,Mumbai,Home & Kitchen,Coffee Mug,Online,1,299,10,269.1
+ORD-1160,2026-05-04,East,Bhubaneswar,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1161,2026-05-05,South,Bengaluru,Stationery,Desk Organizer,Online,2,649,0,1298.0
+ORD-1162,2026-05-05,East,Bhubaneswar,Stationery,Gel Pens (10),In-Store,1,179,0,179.0
+ORD-1163,2026-05-05,South,Bengaluru,Home & Kitchen,Steel Water Bottle,Online,3,699,0,2097.0
+ORD-1164,2026-05-05,West,Ahmedabad,Books,Cloud Basics Guide,In-Store,1,549,5,521.55
+ORD-1165,2026-05-06,North,Chandigarh,Electronics,Bluetooth Speaker,Online,2,3299,0,6598.0
+ORD-1166,2026-05-06,East,Bhubaneswar,Home & Kitchen,Lunch Box,Online,1,549,0,549.0
+ORD-1167,2026-05-07,West,Mumbai,Books,Cloud Basics Guide,Online,2,549,0,1098.0
+ORD-1168,2026-05-08,North,Ludhiana,Books,Python Cookbook,In-Store,1,999,10,899.1
+ORD-1169,2026-05-11,North,Chandigarh,Electronics,Wireless Mouse,In-Store,2,899,10,1618.2
+ORD-1170,2026-05-13,North,Delhi,Home & Kitchen,Steel Water Bottle,Online,3,699,0,2097.0
+ORD-1171,2026-05-14,North,Ludhiana,Books,Data Science Handbook,Online,1,799,0,799.0
+ORD-1172,2026-05-15,East,Kolkata,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1173,2026-05-16,East,Kolkata,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1174,2026-05-16,South,Hyderabad,Home & Kitchen,Steel Water Bottle,Online,3,699,10,1887.3
+ORD-1175,2026-05-17,East,Kolkata,Electronics,USB-C Hub,Online,3,2499,5,7122.15
+ORD-1176,2026-05-19,South,Bengaluru,Electronics,USB-C Hub,In-Store,2,2499,10,4498.2
+ORD-1177,2026-05-20,North,Ludhiana,Books,Cloud Basics Guide,In-Store,2,549,0,1098.0
+ORD-1178,2026-05-20,South,Chennai,Stationery,Notebook Pack,Online,2,249,5,473.1
+ORD-1179,2026-05-21,North,Ludhiana,Books,Data Science Handbook,Online,2,799,5,1518.1
+ORD-1180,2026-05-22,South,Bengaluru,Books,Cloud Basics Guide,In-Store,1,549,0,549.0
+ORD-1181,2026-05-22,South,Bengaluru,Electronics,Bluetooth Speaker,Online,1,3299,10,2969.1
+ORD-1182,2026-05-22,South,Bengaluru,Books,Data Science Handbook,In-Store,1,799,0,799.0
+ORD-1183,2026-05-22,North,Chandigarh,Electronics,Bluetooth Speaker,In-Store,4,3299,0,13196.0
+ORD-1184,2026-05-23,South,Chennai,Home & Kitchen,Steel Water Bottle,Online,1,699,0,699.0
+ORD-1185,2026-05-23,South,Chennai,Stationery,Desk Organizer,Online,1,649,0,649.0
+ORD-1186,2026-05-24,North,Delhi,Stationery,Gel Pens (10),Online,3,179,10,483.3
+ORD-1187,2026-05-24,West,Mumbai,Electronics,Bluetooth Speaker,Online,1,3299,0,3299.0
+ORD-1188,2026-05-25,East,Bhubaneswar,Books,Python Cookbook,In-Store,3,999,5,2847.15
+ORD-1189,2026-05-26,East,Bhubaneswar,Electronics,Wireless Mouse,Online,3,899,0,2697.0
+ORD-1190,2026-05-27,South,Bengaluru,Stationery,Notebook Pack,In-Store,2,249,10,448.2
+ORD-1191,2026-05-28,South,Bengaluru,Home & Kitchen,Lunch Box,Online,3,549,5,1564.65
+ORD-1192,2026-05-29,West,Pune,Stationery,Notebook Pack,Online,2,249,0,498.0
+ORD-1193,2026-05-29,North,Ludhiana,Stationery,Desk Organizer,Online,1,649,0,649.0
+ORD-1194,2026-05-30,South,Chennai,Electronics,Wireless Mouse,In-Store,1,899,0,899.0
+ORD-1195,2026-05-30,West,Ahmedabad,Home & Kitchen,Lunch Box,Online,3,549,10,1482.3
+ORD-1196,2026-05-30,North,Delhi,Electronics,Bluetooth Speaker,Online,4,3299,0,13196.0
+ORD-1197,2026-05-31,South,Bengaluru,Books,Python Cookbook,In-Store,5,999,0,4995.0
+ORD-1198,2026-05-31,West,Mumbai,Home & Kitchen,Coffee Mug,In-Store,5,299,0,1495.0
+ORD-1199,2026-06-01,West,Ahmedabad,Stationery,Gel Pens (10),In-Store,5,179,0,895.0
+ORD-1200,2026-06-02,South,Chennai,Stationery,Gel Pens (10),Online,1,179,0,179.0
+ORD-1201,2026-06-03,North,Delhi,Books,Python Cookbook,Online,4,999,5,3796.2
+ORD-1202,2026-06-03,East,Bhubaneswar,Home & Kitchen,Coffee Mug,In-Store,1,299,10,269.1
+ORD-1203,2026-06-04,West,Ahmedabad,Books,Python Cookbook,Online,4,999,5,3796.2
+ORD-1204,2026-06-04,South,Hyderabad,Electronics,Wireless Mouse,Online,4,899,0,3596.0
+ORD-1205,2026-06-04,East,Bhubaneswar,Home & Kitchen,Steel Water Bottle,Online,1,699,5,664.05
+ORD-1206,2026-06-04,West,Pune,Home & Kitchen,Steel Water Bottle,Online,2,699,0,1398.0
+ORD-1207,2026-06-05,North,Chandigarh,Books,Python Cookbook,Online,1,999,0,999.0
+ORD-1208,2026-06-07,North,Delhi,Stationery,Notebook Pack,Online,1,249,0,249.0
+ORD-1209,2026-06-07,East,Bhubaneswar,Books,Data Science Handbook,Online,1,799,10,719.1
+ORD-1210,2026-06-07,West,Mumbai,Books,Python Cookbook,In-Store,4,999,0,3996.0
+ORD-1211,2026-06-08,West,Mumbai,Stationery,Desk Organizer,Online,2,649,10,1168.2
+ORD-1212,2026-06-09,North,Ludhiana,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1213,2026-06-09,North,Ludhiana,Books,Python Cookbook,In-Store,2,999,0,1998.0
+ORD-1214,2026-06-09,South,Bengaluru,Books,Cloud Basics Guide,In-Store,3,549,10,1482.3
+ORD-1215,2026-06-09,South,Hyderabad,Books,Data Science Handbook,Online,3,799,10,2157.3
+ORD-1216,2026-06-11,North,Ludhiana,Books,Python Cookbook,In-Store,4,999,0,3996.0
+ORD-1217,2026-06-11,South,Bengaluru,Electronics,USB-C Hub,Online,3,2499,10,6747.3
+ORD-1218,2026-06-12,West,Pune,Home & Kitchen,Steel Water Bottle,In-Store,1,699,0,699.0
+ORD-1219,2026-06-12,East,Bhubaneswar,Electronics,Laptop Stand,In-Store,2,1599,5,3038.1
+ORD-1220,2026-06-13,East,Kolkata,Books,Cloud Basics Guide,Online,1,549,0,549.0
+ORD-1221,2026-06-14,South,Chennai,Home & Kitchen,Coffee Mug,Online,2,299,0,598.0
+ORD-1222,2026-06-14,East,Bhubaneswar,Home & Kitchen,Coffee Mug,Online,2,299,0,598.0
+ORD-1223,2026-06-16,North,Ludhiana,Electronics,Bluetooth Speaker,Online,1,3299,5,3134.05
+ORD-1224,2026-06-16,North,Delhi,Home & Kitchen,Lunch Box,In-Store,3,549,10,1482.3
+ORD-1225,2026-06-17,East,Bhubaneswar,Electronics,Wireless Mouse,Online,3,899,10,2427.3
+ORD-1226,2026-06-20,South,Hyderabad,Home & Kitchen,Lunch Box,Online,2,549,0,1098.0
+ORD-1227,2026-06-22,West,Ahmedabad,Home & Kitchen,Lunch Box,Online,2,549,10,988.2
+ORD-1228,2026-06-22,North,Chandigarh,Books,Python Cookbook,Online,2,999,0,1998.0
+ORD-1229,2026-06-22,East,Kolkata,Electronics,Wireless Mouse,Online,2,899,0,1798.0
+ORD-1230,2026-06-23,South,Chennai,Electronics,Wireless Mouse,Online,1,899,0,899.0
+ORD-1231,2026-06-23,North,Chandigarh,Stationery,Gel Pens (10),In-Store,1,179,0,179.0
+ORD-1232,2026-06-25,West,Pune,Stationery,Notebook Pack,Online,2,249,0,498.0
+ORD-1233,2026-06-25,North,Ludhiana,Home & Kitchen,Steel Water Bottle,Online,2,699,10,1258.2
+ORD-1234,2026-06-26,West,Pune,Electronics,Wireless Mouse,Online,1,899,0,899.0
+ORD-1235,2026-06-26,South,Chennai,Electronics,USB-C Hub,Online,1,2499,5,2374.05
+ORD-1236,2026-06-28,South,Bengaluru,Stationery,Desk Organizer,Online,1,649,0,649.0
+ORD-1237,2026-06-28,South,Chennai,Books,Data Science Handbook,Online,2,799,0,1598.0
+ORD-1238,2026-06-28,East,Bhubaneswar,Books,Data Science Handbook,Online,4,799,10,2876.4
+ORD-1239,2026-06-28,West,Ahmedabad,Home & Kitchen,Lunch Box,Online,3,549,5,1564.65
+ORD-1240,2026-06-30,West,Ahmedabad,Books,Cloud Basics Guide,In-Store,1,549,5,521.55`;
+const REQUIRED = ['order_id','order_date','region','category','quantity','total_amount'];
+const NUM = ['quantity','unit_price','discount_pct','total_amount'];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = v => '₹' + Math.round(v).toLocaleString('en-IN');
+const sum = (a, k) => a.reduce((t, r) => t + (r[k] || 0), 0);
+const group = (a, k, f) => { const m = {}; a.forEach(r => (m[r[k]] ||= []).push(r)); return Object.entries(m).map(([g, rs]) => [g, f(rs)]); };
+const mName = m => new Date(m + '-01T00:00:00').toLocaleString('en-GB', {month: 'short'});
+
+function parseCSV(text) {
+  const out = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); out.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); out.push(row); }
+  return out.filter(r => r.some(x => x.trim() !== ''));
+}
+function isoDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); if (m) return m[0];
+  const d = new Date(s); if (!s || isNaN(d)) return null;
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function toRows(text) {
+  const t = parseCSV(text.replace(/^﻿/, ''));
+  if (t.length < 2) throw new Error('The file has no data rows.');
+  const head = t[0].map(h => h.trim().toLowerCase());
+  const missing = REQUIRED.filter(c => !head.includes(c));
+  if (missing.length) throw new Error('Missing required column(s): ' + missing.join(', '));
+  let skipped = 0;
+  const rows = t.slice(1).map(v => { const o = {}; head.forEach((h, i) => o[h] = (v[i] ?? '').trim()); return o; }).filter(o => {
+    NUM.forEach(k => { if (k in o) o[k] = o[k] === '' ? NaN : +o[k]; });
+    const iso = isoDate(o.order_date);
+    if (!iso || isNaN(o.quantity) || isNaN(o.total_amount)) { skipped++; return false; }
+    o.order_date = iso; o.month = iso.slice(0, 7);
+    o.channel ||= 'Unknown'; o.product ||= '(not given)';
+    return true;
+  });
+  if (!rows.length) throw new Error('No valid rows: check the dates and numbers.');
+  return {rows, head: head.filter(h => h !== 'month'), skipped};
+}
+
+let DS = toRows(SAMPLE), srcName = 'data/sample_sales.csv', cur = [], on = {};
+const uniq = k => [...new Set(DS.rows.map(r => r[k]))].sort();
+
+/* ---------- filters ---------- */
+function buildFilters() {
+  on = {region: new Set(uniq('region')), category: new Set(uniq('category')), channel: new Set(uniq('channel'))};
+  [['fRegion','region','Region'],['fCat','category','Category'],['fChan','channel','Channel']].forEach(([id, k, lab]) => {
+    $(id).innerHTML = `<b>${lab}</b>` + [...on[k]].map(v => `<button class="chip" aria-pressed="true" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join('');
+  });
+}
+document.querySelector('.filters').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  const s = on[b.dataset.k], v = b.dataset.v;
+  s.has(v) ? s.delete(v) : s.add(v);
+  b.setAttribute('aria-pressed', s.has(v)); render();
+});
+
+/* ---------- charts ---------- */
+const lineSvg = $('lineChart');
+function drawLine() {
+  const W = lineSvg.clientWidth, H = lineSvg.clientHeight; if (!W) return;
+  const months = [...new Set(DS.rows.map(r => r.month))].sort();
+  const data = months.map(m => [m, sum(cur.filter(r => r.month === m), 'total_amount')]);
+  if (!data.length) { lineSvg.innerHTML = ''; return; }
+  const max = Math.max(1, ...data.map(d => d[1])) * 1.15;
+  const L = W < 520 ? 44 : 70, R = 18, T = 26, B = 30;
+  const x = i => L + (W - L - R) * (data.length === 1 ? .5 : i / (data.length - 1));
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const fmt = v => W < 520 || v >= 1e6 ? '₹' + Math.round(v / 1000) + 'k' : inr(v);
+  const pts = data.map((d, i) => `${x(i)},${y(d[1])}`).join(' ');
+  const labelEvery = Math.ceil(data.length / (W < 520 ? 4 : 12));
+  lineSvg.innerHTML = [0, .25, .5, .75, 1].map(f => max / 1.15 * f).map(t =>
+      `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#26346b"/><text x="${L - 8}" y="${y(t) + 4}" fill="#a9b3d6" font-size="12" text-anchor="end">${fmt(t)}</text>`).join('') +
+    `<polygon points="${x(0)},${y(0)} ${pts} ${x(data.length - 1)},${y(0)}" fill="#4fc1c6" opacity=".14"/>` +
+    `<polyline points="${pts}" fill="none" stroke="#4fc1c6" stroke-width="3" stroke-linejoin="round"/>` +
+    data.map((d, i) => `<circle cx="${x(i)}" cy="${y(d[1])}" r="5" fill="#0b1433" stroke="#f7e463" stroke-width="2.5"><title>${mName(d[0])} ${d[0].slice(0, 4)}: ${inr(d[1])}</title></circle>` +
+      (W >= 420 && data.length <= 12 ? `<text x="${x(i)}" y="${y(d[1]) - 12}" fill="#eef1fb" font-size="12" text-anchor="middle">${fmt(d[1])}</text>` : '') +
+      (i % labelEvery === 0 ? `<text x="${x(i)}" y="${H - 8}" fill="#a9b3d6" font-size="12" text-anchor="middle">${mName(d[0])}</text>` : '')).join('');
+}
+const lineObs = new ResizeObserver(drawLine); lineObs.observe(lineSvg);
+
+const scale = ['#3b4fd8', '#4fc1c6', '#f7e463', '#e8452c'];
+function heatColor(f) { f = Math.max(0, Math.min(1, f)); const i = Math.min(2, Math.floor(f * 3)), t = f * 3 - i;
+  const a = scale[i], b = scale[i + 1], h = (c, k) => parseInt(c.slice(1 + k * 2, 3 + k * 2), 16);
+  return 'rgb(' + [0, 1, 2].map(k => Math.round(h(a, k) + (h(b, k) - h(a, k)) * t)).join(',') + ')'; }
+function bars(el, data, fmt) {
+  const max = Math.max(1, ...data.map(d => d[1]));
+  el.innerHTML = data.length ? data.map(([k, v]) => `<div class="row"><span title="${esc(k)}">${esc(k)}</span><div class="bar" style="width:${(v / max * 100).toFixed(1)}%"></div><em>${fmt(v)}</em></div>`).join('') : '<p class="note">No data.</p>';
+}
+function quant(a, p) { const s = [...a].sort((x, y) => x - y), i = (s.length - 1) * p, lo = Math.floor(i); return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo); }
+
+/* ---------- dashboard render ---------- */
+function render() {
+  cur = DS.rows.filter(r => on.region.has(r.region) && on.category.has(r.category) && on.channel.has(r.channel));
+  const n = cur.length, rev = sum(cur, 'total_amount');
+  $('empty').classList.toggle('hidden', n > 0);
+  const dates = cur.map(r => r.order_date).sort();
+  const d = s => new Date(s + 'T00:00:00').toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'});
+  $('caption').textContent = `Source: ${srcName} · ${n.toLocaleString('en-IN')} of ${DS.rows.length.toLocaleString('en-IN')} rows` + (n ? ` · ${d(dates[0])} to ${d(dates[n - 1])}` : '');
+  const byCat = group(cur, 'category', rs => sum(rs, 'total_amount')).sort((a, b) => b[1] - a[1]);
+  const top = byCat[0];
+  $('headline').textContent = !n ? 'No rows match the current filters' :
+    top[1] / rev > .5 ? `${top[0]} drives over half of revenue` : `${top[0]} leads revenue, with ${Math.round(top[1] / rev * 100)}% of the total`;
+  const months = [...new Set(cur.map(r => r.month))].sort();
+  const mRev = m => sum(cur.filter(r => r.month === m), 'total_amount');
+  let change = '';
+  if (months.length > 1) { const a = mRev(months.at(-2)), b = mRev(months.at(-1)); change = a ? `${b >= a ? '▲' : '▼'} ${Math.abs((b - a) / a * 100).toFixed(0)}% in ${mName(months.at(-1))} vs ${mName(months.at(-2))}` : ''; }
+  $('kpis').innerHTML = [
+    ['Total revenue', inr(rev), change], ['Orders', n.toLocaleString('en-IN'), ''],
+    ['Average order value', n ? inr(rev / n) : '–', ''], ['Units sold', sum(cur, 'quantity').toLocaleString('en-IN'), '']
+  ].map(([k, v, s]) => `<div><span>${k}</span><strong>${v}</strong>${s ? `<small>${s}</small>` : ''}</div>`).join('');
+  drawLine();
+
+  const allMonths = [...new Set(DS.rows.map(r => r.month))].sort().slice(-12);
+  const shownCats = [...on.category].sort();
+  const cells = shownCats.map(c => allMonths.map(m => sum(cur.filter(r => r.category === c && r.month === m), 'total_amount')));
+  const hmax = Math.max(1, ...cells.flat());
+  $('heat').style.gridTemplateColumns = `minmax(6em,1.4fr) repeat(${allMonths.length},minmax(0,1fr))`;
+  $('heat').innerHTML = n ? '<div class="lab"></div>' + allMonths.map(m => `<div class="lab" style="text-align:center">${mName(m)}</div>`).join('') +
+    shownCats.map((c, i) => `<div class="lab" title="${esc(c)}">${esc(c)}</div>` + cells[i].map(v => `<div style="background:${heatColor(v / hmax)}" title="${esc(c)}: ${inr(v)}">${v ? Math.round(v / 1000) : '–'}</div>`).join('')).join('') : '';
+
+  bars($('byCat'), byCat, inr);
+  bars($('byRegion'), group(cur, 'region', rs => rs.length).sort((a, b) => b[1] - a[1]), v => v + ' orders');
+  const chan = group(cur, 'channel', rs => sum(rs, 'total_amount')).sort((a, b) => b[1] - a[1]);
+  $('byChan').innerHTML = n ? `<div class="split">${chan.map(([k, v], i) => `<div style="flex-basis:${v / rev * 100}%;background:${scale[(i + 1) % 4]}" title="${esc(k)}: ${inr(v)}">${v / rev > .18 ? Math.round(v / rev * 100) + '%' : ''}</div>`).join('')}</div>` +
+    chan.map(([k, v], i) => `<p class="note" style="font-size:14px"><span style="color:${scale[(i + 1) % 4]}">■</span> ${esc(k)}: ${inr(v)}</p>`).join('') : '<p class="note">No data.</p>';
+  bars($('topProd'), group(cur, 'product', rs => sum(rs, 'total_amount')).sort((a, b) => b[1] - a[1]).slice(0, 5), inr);
+
+  const head = DS.head;
+  $('prevNote').textContent = `First ${Math.min(50, n)} of ${n} filtered rows from ${srcName}.`;
+  $('preview').innerHTML = '<thead><tr>' + head.map(h => `<th class="${NUM.includes(h) ? 'n' : ''}">${esc(h)}</th>`).join('') + '</tr></thead><tbody>' +
+    cur.slice(0, 50).map(r => '<tr>' + head.map(h => `<td class="${NUM.includes(h) ? 'n' : ''}">${esc(r[h])}</td>`).join('') + '</tr>').join('') + '</tbody>';
+  const cols = NUM.filter(c => head.includes(c)), names = ['count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max'];
+  const stat = c => { const a = cur.map(r => r[c]).filter(v => !isNaN(v)); if (!a.length) return names.map(() => '–');
+    const m = a.reduce((t, v) => t + v, 0) / a.length, sd = a.length > 1 ? Math.sqrt(a.reduce((t, v) => t + (v - m) ** 2, 0) / (a.length - 1)) : 0;
+    return [a.length, m, sd, Math.min(...a), quant(a, .25), quant(a, .5), quant(a, .75), Math.max(...a)].map((v, i) => i ? v.toFixed(2) : v); };
+  $('stats').innerHTML = '<thead><tr><th>column</th>' + names.map(s => `<th class="n">${s}</th>`).join('') + '</tr></thead><tbody>' +
+    cols.map(c => `<tr><td>${c}</td>` + stat(c).map(v => `<td class="n">${v}</td>`).join('') + '</tr>').join('') + '</tbody>';
+  loadTable();
+}
+
+/* ---------- data source ---------- */
+function setSource(which) {
+  $('srcSample').setAttribute('aria-pressed', which === 'sample');
+  $('srcUpload').setAttribute('aria-pressed', which === 'upload');
+  $('uploadBox').classList.toggle('on', which === 'upload');
+  if (which === 'sample' && srcName !== 'data/sample_sales.csv') { DS = toRows(SAMPLE); srcName = 'data/sample_sales.csv'; buildFilters(); render(); msg($('loadMsg'), '', ''); }
+}
+$('srcSample').addEventListener('click', () => setSource('sample'));
+$('srcUpload').addEventListener('click', () => setSource('upload'));
+$('file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 20 * 1024 * 1024) { msg($('loadMsg'), 'That file is over 20 MB. Please use a smaller CSV.', 'err'); return; }
+  f.text().then(t => {
+    try { DS = toRows(t); srcName = f.name; buildFilters(); render();
+      msg($('loadMsg'), `Loaded ${DS.rows.length.toLocaleString('en-IN')} rows from ${f.name}` + (DS.skipped ? `, skipped ${DS.skipped} invalid row(s)` : '') + '.', 'ok'); }
+    catch (err) { msg($('loadMsg'), 'Couldn\'t use this file: ' + err.message, 'err'); }
+  });
+});
+function msg(el, text, cls) { el.textContent = text; el.className = 'msg ' + cls; }
+
+$('copyCsv').addEventListener('click', async () => {
+  const head = DS.head, q = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v;
+  const text = [head.join(',')].concat(cur.map(r => head.map(h => q(r[h])).join(','))).join('\n');
+  try { await navigator.clipboard.writeText(text); $('copyMsg').textContent = `Copied ${cur.length} rows. Paste into Excel or a text file.`; }
+  catch { $('copyMsg').textContent = 'Your browser blocked copying.'; }
+});
+
+/* ---------- SQL lab ---------- */
+const BLOCKED = ['insert','update','delete','drop','alter','create','truncate','merge','exec','execute','grant','revoke','deny','backup','restore','shutdown','openrowset','opendatasource','into'];
+function validate(q) {
+  const c = (q || '').trim().replace(/;+\s*$/, '');
+  if (!c) return [c, 'Please enter a SQL query.'];
+  if (c.includes(';')) return [c, 'Rejected: run one statement at a time (remove the extra ;).'];
+  if (!/^(select|with)\b/i.test(c)) return [c, 'Rejected: only queries starting with SELECT (or WITH) are allowed.'];
+  const bare = c.replace(/'[^']*'/g, "''").replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' ');
+  for (const w of BLOCKED) if (new RegExp('\\b' + w + '\\b', 'i').test(bare)) return [c, `Rejected: the keyword ${w.toUpperCase()} isn't allowed. This app only reads data.`];
+  return [c, null];
+}
+const PRESETS = [
+  ['Sample query (TOP, WHERE, ORDER BY)', `SELECT TOP (500)\n    order_id, order_date, region, city, category, product,\n    channel, quantity, unit_price, discount_pct, total_amount\nFROM dbo.Sales\nWHERE order_date >= '2026-01-01'\nORDER BY order_date;`,
+    'Reads at most 500 rows from the Sales table, keeps orders from 1 January 2026 onwards, and sorts them oldest first. It returns the same columns as the CSV.', 'SELECT chooses columns · TOP limits rows · WHERE filters rows · ORDER BY sorts'],
+  ['Revenue per category (GROUP BY)', `SELECT category,\n       COUNT(*)          AS orders,\n       SUM(quantity)     AS units_sold,\n       SUM(total_amount) AS revenue\nFROM dbo.Sales\nGROUP BY category\nORDER BY revenue DESC;`,
+    'Groups every order by category and totals orders, units and revenue for each group, largest revenue first. This is the analytical query behind the "Revenue by category" chart.', 'GROUP BY makes one row per group · COUNT and SUM are aggregate functions · AS names a result column'],
+  ['Average order value by region', `SELECT region,\n       COUNT(*)                  AS orders,\n       ROUND(AVG(total_amount), 2) AS avg_order_value\nFROM dbo.Sales\nGROUP BY region\nORDER BY avg_order_value DESC;`,
+    'Works out how much a typical order is worth in each region.', 'AVG averages a column · ROUND tidies decimals'],
+  ['Big online orders (filter on two columns)', `SELECT order_id, order_date, city, product, total_amount\nFROM dbo.Sales\nWHERE channel = 'Online' AND total_amount > 5000\nORDER BY total_amount DESC;`,
+    'Lists online orders worth more than ₹5,000, largest first.', 'AND combines conditions · text values go in single quotes'],
+  ['Categories with revenue over ₹50,000 (HAVING)', `SELECT category, SUM(total_amount) AS revenue\nFROM dbo.Sales\nGROUP BY category\nHAVING SUM(total_amount) > 50000\nORDER BY revenue DESC;`,
+    'Totals revenue per category, then keeps only the groups above ₹50,000.', 'WHERE filters rows before grouping · HAVING filters groups after'],
+  ['Try a blocked query', `DELETE FROM dbo.Sales;`, 'Tries to delete every row. The read-only guard stops it before it reaches the database.', 'DML changes data · the app only allows DQL (queries)']
+];
+$('preset').innerHTML = '<option value="">Example queries…</option>' + PRESETS.map((p, i) => `<option value="${i}">${esc(p[0])}</option>`).join('');
+function usePreset(i) { const p = PRESETS[i]; $('sql').value = p[1]; $('explain').textContent = p[2]; $('concepts').textContent = p[3]; }
+$('preset').addEventListener('change', e => { if (e.target.value !== '') { usePreset(+e.target.value); runSQL(); } e.target.value = ''; });
+usePreset(0);
+
+let sqlReady = typeof alasql !== 'undefined';
+function loadTable() {
+  if (!sqlReady) return;
+  try { alasql('DROP TABLE IF EXISTS Sales'); alasql('CREATE TABLE Sales'); alasql.tables.Sales.data = DS.rows.map(r => { const o = {...r}; delete o.month; return o; }); }
+  catch { sqlReady = false; }
+}
+function toAlasql(q) {
+  return q.replace(/\[?\bdbo\]?\.\[?(\w+)\]?/gi, '$1').replace(/\bTOP\s*\(\s*(\d+)\s*\)/gi, 'TOP $1');
+}
+function runSQL() {
+  const [clean, err] = validate($('sql').value);
+  $('resultCard').classList.add('hidden');
+  if (err) { msg($('sqlMsg'), err, 'err'); return; }
+  if (!sqlReady) { msg($('sqlMsg'), 'The SQL engine didn\'t load (it comes from cdn.jsdelivr.net). Check your internet connection and reload the page.', 'err'); return; }
+  try {
+    const t0 = performance.now();
+    let res = alasql(toAlasql(clean));
+    const ms = Math.max(1, Math.round(performance.now() - t0));
+    if (!Array.isArray(res)) res = [{result: res}];
+    if (!res.length) { msg($('sqlMsg'), `Query ran in ${ms} ms and returned no rows.`, 'ok'); return; }
+    const cols = Object.keys(res[0]), shown = res.slice(0, 500);
+    const isNum = c => shown.every(r => r[c] === null || r[c] === undefined || typeof r[c] === 'number');
+    const fmt = v => typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(2) : v;
+    $('result').innerHTML = '<thead><tr>' + cols.map(c => `<th class="${isNum(c) ? 'n' : ''}">${esc(c)}</th>`).join('') + '</tr></thead><tbody>' +
+      shown.map(r => '<tr>' + cols.map(c => `<td class="${isNum(c) ? 'n' : ''}">${esc(fmt(r[c]))}</td>`).join('') + '</tr>').join('') + '</tbody>';
+    $('resultTitle').textContent = `Result: ${res.length.toLocaleString('en-IN')} row${res.length === 1 ? '' : 's'} × ${cols.length} column${cols.length === 1 ? '' : 's'}` + (res.length > 500 ? ' (showing the first 500)' : '');
+    $('resultCard').classList.remove('hidden');
+    msg($('sqlMsg'), `Query ran in ${ms} ms on ${DS.rows.length.toLocaleString('en-IN')} rows from ${srcName}.`, 'ok');
+  } catch (e) {
+    msg($('sqlMsg'), 'SQL error: ' + (e.message || e) + '. Check column names (order_id, order_date, region, city, category, product, channel, quantity, unit_price, discount_pct, total_amount).', 'err');
+  }
+}
+$('run').addEventListener('click', runSQL);
+$('sql').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); runSQL(); } });
+
+/* ---------- Azure guard demo ---------- */
+const TRIES = ['SELECT * FROM dbo.Sales', 'DELETE FROM dbo.Sales', 'SELECT * INTO copy FROM dbo.Sales', 'SELECT 1; DROP TABLE dbo.Sales'];
+$('tries').innerHTML = TRIES.map((t, i) => `<button class="btn small" data-i="${i}"><code>${esc(t)}</code></button>`).join('');
+$('tries').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const err = validate(TRIES[b.dataset.i])[1];
+  msg($('verdict'), err || 'Allowed: a single read-only query.', err ? 'err' : 'ok');
+});
+
+/* ---------- quiz ---------- */
+const QUIZ = [
+  ['Which SQL statement type does this app allow?', ['DDL: CREATE, ALTER, DROP', 'DML: INSERT, UPDATE, DELETE', 'DQL: SELECT queries only'], 2, 'The dashboard only reads data, so it allows SELECT and blocks anything that changes data.'],
+  ['Azure SQL Database is an example of which cloud service model?', ['IaaS', 'PaaS', 'SaaS'], 1, 'It is platform as a service: Microsoft manages the servers, patching and backups, and you manage the data.'],
+  ['Where should Azure credentials for this project live?', ['In app.py', 'In the README', 'In a git-ignored secrets.toml or environment variables'], 2, 'Secrets stay out of code and out of Git history.']
+];
+let qi = 0;
+function showQ() {
+  const [q, opts] = QUIZ[qi];
+  $('quiz').innerHTML = `<h3>Quick check (${qi + 1} of ${QUIZ.length})</h3><p>${esc(q)}</p>` + opts.map((o, i) => `<button class="btn" data-i="${i}">${esc(o)}</button>`).join('') + '<p class="msg" id="qMsg" aria-live="polite"></p>';
+}
+$('quiz').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'next') { qi = (qi + 1) % QUIZ.length; showQ(); return; }
+  const [, , ans, why] = QUIZ[qi], pick = +b.dataset.i;
+  $('quiz').querySelectorAll('button[data-i]').forEach((x, i) => { x.disabled = true; if (i === ans) x.classList.add('right'); else if (i === pick) x.classList.add('wrong'); });
+  $('qMsg').innerHTML = `<span class="${pick === ans ? 'ok' : 'err'}">${pick === ans ? 'Correct.' : 'Not quite.'}</span> <span style="font-weight:400">${esc(why)}</span> <button class="btn small" id="next">Next question</button>`;
+});
+showQ();
+
+/* ---------- routing ---------- */
+const VIEWS = ['dashboard', 'sql-lab', 'azure', 'learn'];
+function route() {
+  const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
+  VIEWS.forEach(x => $('v-' + x).classList.toggle('on', x === v));
+  document.querySelectorAll('nav a').forEach(a => a.dataset.v === v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  if (v === 'dashboard') drawLine();
+  if (v === 'sql-lab' && !$('sqlMsg').textContent) runSQL();
+}
+window.addEventListener('hashchange', route);
+
+buildFilters(); render(); route();
+}
+</script>
+</body>
+</html>
